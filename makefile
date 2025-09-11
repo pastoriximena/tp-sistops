@@ -125,6 +125,20 @@ help:
 	@echo ""
 	@echo "💡 Uso del programa:"
 	@echo "   ./$(TARGET) <num_generadores> <total_registros>"
+monitor:
+	@echo "=== Procesos coordinador/generador ==="
+	@ps -fC coordinador || true
+	@ps -fC generador || true
+	@echo
+	@echo "=== Recursos IPC (memoria y semáforos) ==="
+	@ipcs -m
+	@ipcs -s
+	@echo
+	@echo "=== /dev/shm ==="
+	@ls -lh /dev/shm
+	@echo
+	@echo "=== Estadísticas vmstat (5 seg) ==="
+	@vmstat 1 5
 
 # Declarar targets que no son archivos
 .PHONY: all clean clean-ipc test verify monitor help

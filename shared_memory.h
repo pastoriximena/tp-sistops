@@ -50,6 +50,12 @@ typedef struct {
     int generador_id;
 } RespuestaIDs;
 
+
+typedef struct {
+    int ids[IDS_POR_LOTE];
+    int usados[IDS_POR_LOTE]; // 0 = no usado, 1 = ya escrito
+} LoteAsignado;
+
 // Estructura principal de memoria compartida
 typedef struct {
     EstadoComunicacion estado;
@@ -70,6 +76,8 @@ typedef struct {
     int proceso_finalizando;
 } MemoriaCompartida;
 
+
+#define MAX_GENERADORES 10
 // Claves para IPC
 #define CLAVE_SHM 12345
 #define CLAVE_SEM 12346

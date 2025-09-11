@@ -10,6 +10,7 @@
 # Archivos CSV generados por el programa
 *.csv
 
+*.zip
 
 # Carpetas del sistema
 .DS_Store

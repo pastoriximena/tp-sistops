@@ -2,7 +2,7 @@
 
 void proceso_coordinador(int shmid, int semid) {
     printf("👑 Coordinador: Iniciando...\n");
-    
+
     MemoriaCompartida *shm = (MemoriaCompartida*) shmat(shmid, NULL, 0);
     if (shm == (MemoriaCompartida*) -1) {
         perror("Coordinador: Error attachando memoria compartida");
@@ -52,7 +52,7 @@ void proceso_coordinador(int shmid, int semid) {
                    cantidad_a_asignar, shm->respuesta.generador_id);
             
             // Despertar TODOS los generadores (simplificado)
-            for (int i = 0; i < 10; i++) {  // máximo 10 generadores
+            for (int i = 0; i < MAX_GENERADORES; i++) {  // máximo 10 generadores
                 sem_signal(semid, SEM_GEN);
             }
             
@@ -66,6 +66,7 @@ void proceso_coordinador(int shmid, int semid) {
                     shm->registro_actual.salario,
                     shm->registro_actual.departamento);
             fflush(csv_file);
+
             
             registros_escritos++;
             shm->estado = ESTADO_REGISTRO_PROCESADO;
