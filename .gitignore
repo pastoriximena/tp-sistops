@@ -1,0 +1,16 @@
+# Archivos compilados
+*.o
+*.out
+*.exe
+
+# Archivos temporales
+*.log
+*.tmp
+
+# Archivos CSV generados por el programa
+*.csv
+
+
+# Carpetas del sistema
+.DS_Store
+Thumbs.db
