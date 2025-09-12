@@ -13,17 +13,17 @@ void cleanup_handler(int sig) {
     (void)sig; // Evitar warning
     printf("\n🧹 Limpiando recursos del sistema...\n");
     
-    // Terminar procesos hijos
+    // Terminar procesos hijos con SIGKILL si es necesario
     if (coordinador_pid > 0) {
-        kill(coordinador_pid, SIGTERM);
-        waitpid(coordinador_pid, NULL, 0);
+        kill(coordinador_pid, SIGKILL);  // Usar SIGKILL para forzar
+        waitpid(coordinador_pid, NULL, WNOHANG);
     }
     
     if (generadores_pids) {
         for (int i = 0; i < num_generadores; i++) {
             if (generadores_pids[i] > 0) {
-                kill(generadores_pids[i], SIGTERM);
-                waitpid(generadores_pids[i], NULL, 0);
+                kill(generadores_pids[i], SIGKILL);
+                waitpid(generadores_pids[i], NULL, WNOHANG);
             }
         }
         free(generadores_pids);
@@ -84,6 +84,7 @@ int main(int argc, char *argv[]) {
     // Configurar manejador de señales para limpieza
     signal(SIGINT, cleanup_handler);
     signal(SIGTERM, cleanup_handler);
+    signal(SIGALRM, cleanup_handler);  // Timeout de 30 segundos
     
     // Crear memoria compartida
     shmid = shmget(CLAVE_SHM, sizeof(MemoriaCompartida), IPC_CREAT | 0666);
@@ -146,6 +147,9 @@ int main(int argc, char *argv[]) {
     }
     
     printf("\n🎯 Todos los procesos iniciados. Esperando finalización...\n\n");
+    
+    // Configurar timeout de 30 segundos para forzar terminación si hay deadlock
+    alarm(30);
     
     // Esperar a que termine el coordinador
     int status;

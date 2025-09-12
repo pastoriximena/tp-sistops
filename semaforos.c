@@ -45,9 +45,12 @@ int crear_semaforos() {
         return -1;
     }
     
-    if (semctl(semid, SEM_GEN, SETVAL, 0) == -1) {    // Generadores en 0
-        perror("Error inicializando SEM_GEN");
-        return -1;
+    // Inicializar semáforos de generadores en 0
+    for (int i = 0; i < MAX_GENERADORES; i++) {
+        if (semctl(semid, SEM_GEN_BASE + i, SETVAL, 0) == -1) {
+            perror("Error inicializando semáforo de generador");
+            return -1;
+        }
     }
     
     return semid;

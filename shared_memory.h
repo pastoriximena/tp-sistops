@@ -85,8 +85,8 @@ typedef struct {
 // Índices de semáforos
 #define SEM_MUTEX 0      // Exclusión mutua
 #define SEM_COORD 1      // Semáforo coordinador
-#define SEM_GEN 2        // Semáforo generadores  
-#define NUM_SEMAFOROS 3
+#define SEM_GEN_BASE 2   // Base para semáforos de generadores (SEM_GEN_0, SEM_GEN_1, ...)
+#define NUM_SEMAFOROS (2 + MAX_GENERADORES)
 
 // Funciones principales
 void proceso_coordinador(int shmid, int semid);

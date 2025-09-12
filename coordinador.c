@@ -51,10 +51,8 @@ void proceso_coordinador(int shmid, int semid) {
             printf("👑 Coordinador: Asignados %d IDs al generador %d\n",
                    cantidad_a_asignar, shm->respuesta.generador_id);
             
-            // Despertar TODOS los generadores (simplificado)
-            for (int i = 0; i < MAX_GENERADORES; i++) {  // máximo 10 generadores
-                sem_signal(semid, SEM_GEN);
-            }
+            // Despertar solo al generador que solicitó
+            sem_signal(semid, SEM_GEN_BASE + (shm->respuesta.generador_id - 1));
             
         } else if (shm->estado == ESTADO_NUEVO_REGISTRO) {
             // Escribir registro
@@ -81,8 +79,8 @@ void proceso_coordinador(int shmid, int semid) {
                    shm->registro_actual.id, shm->generador_actual, 
                    registros_escritos, shm->total_registros_objetivo);
             
-            // Despertar generadores (una sola señal)
-            sem_signal(semid, SEM_GEN);
+            // Despertar al generador que envió el registro
+            sem_signal(semid, SEM_GEN_BASE + (shm->generador_actual - 1));
             
         } else if (shm->estado == ESTADO_FINALIZAR) {
             shm->generadores_activos--;

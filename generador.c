@@ -65,8 +65,8 @@ void proceso_generador(int generador_id, int shmid, int semid) {
             
             // Esperar respuesta
             int intentos = 0;
-            while (intentos < 50) {
-                sem_wait(semid, SEM_GEN);
+            while (intentos < 100) {
+                sem_wait(semid, SEM_GEN_BASE + (generador_id - 1));
                 sem_wait(semid, SEM_MUTEX);
                 
                 if (shm->estado == ESTADO_IDS_LISTOS && shm->respuesta.generador_id == generador_id) {
@@ -82,6 +82,7 @@ void proceso_generador(int generador_id, int shmid, int semid) {
                 }
                 
                 sem_signal(semid, SEM_MUTEX);
+                usleep(10000); // Esperar 10ms antes de reintentar
                 intentos++;
             }
             
@@ -114,8 +115,8 @@ void proceso_generador(int generador_id, int shmid, int semid) {
             
             // Esperar confirmación con timeout
             int confirmado = 0;
-            for (int i = 0; i < 50; i++) {
-                sem_wait(semid, SEM_GEN);
+            for (int i = 0; i < 100; i++) {
+                sem_wait(semid, SEM_GEN_BASE + (generador_id - 1));
                 sem_wait(semid, SEM_MUTEX);
                 if (shm->estado == ESTADO_REGISTRO_PROCESADO) {
                     registros_enviados++;
@@ -125,6 +126,7 @@ void proceso_generador(int generador_id, int shmid, int semid) {
                     break;
                 }
                 sem_signal(semid, SEM_MUTEX);
+                usleep(10000); // Esperar 10ms antes de reintentar
             }
             
             if (!confirmado) {
