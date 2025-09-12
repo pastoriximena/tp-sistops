@@ -16,7 +16,7 @@ void proceso_coordinador(int shmid, int semid) {
         exit(1);
     }
     
-    fprintf(csv_file, "ID,Nombre,Email,Edad,Salario,Departamento\n");
+    fprintf(csv_file, "ID,Nombre,Clase,Nivel,Oro\n");
     fflush(csv_file);
     printf("👑 Coordinador: Archivo CSV creado\n");
     
@@ -56,13 +56,12 @@ void proceso_coordinador(int shmid, int semid) {
             
         } else if (shm->estado == ESTADO_NUEVO_REGISTRO) {
             // Escribir registro
-            fprintf(csv_file, "%d,%s,%s,%d,%.2f,%s\n",
+            fprintf(csv_file, "%d,%s,%s,%d,%.2f\n",
                     shm->registro_actual.id,
                     shm->registro_actual.nombre,
-                    shm->registro_actual.email,
-                    shm->registro_actual.edad,
-                    shm->registro_actual.salario,
-                    shm->registro_actual.departamento);
+                    shm->registro_actual.clase,
+                    shm->registro_actual.nivel,
+                    shm->registro_actual.oro);
             fflush(csv_file);
 
             

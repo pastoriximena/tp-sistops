@@ -14,17 +14,16 @@
 
 #define MAX_RECORD_SIZE 512
 #define MAX_NOMBRE 50
-#define MAX_EMAIL 100
+#define MAX_CLASE 50
 #define IDS_POR_LOTE 10
 
 // Estructura para un registro de datos
 typedef struct {
     int id;
     char nombre[MAX_NOMBRE];
-    char email[MAX_EMAIL];
-    int edad;
-    float salario;
-    char departamento[MAX_NOMBRE];
+    char clase[MAX_CLASE];
+    int nivel;
+    float oro;
 } Registro;
 
 // Estados para la comunicación

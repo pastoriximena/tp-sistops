@@ -1,19 +1,31 @@
 #include "shared_memory.h"
 
-const char* nombres[] = {"Ana", "Juan", "Maria", "Pedro", "Laura", "Carlos"};
-const char* apellidos[] = {"Garcia", "Lopez", "Martinez", "Gonzalez", "Rodriguez", "Fernandez"};
-const char* departamentos[] = {"Ventas", "IT", "RRHH", "Finanzas", "Marketing"};
-const char* dominios[] = {"@gmail.com", "@yahoo.com", "@empresa.com"};
+const char* nombres[] = {
+    "Thaldrin", "Elenya", "Borak", "Lyraen", "Kaelith",
+    "Druanor", "Selindra", "Veynor", "Aelthar", "Morgana"
+};
 
+// Apellidos/familias clánicas
+const char* apellidos[] = {
+    "de los Cuervos", "Martillo Rojo", "Sombras Negras", 
+    "Llama Azul", "de la Luna", "Diente de Hierro",
+    "Corazón de Roble", "Tormenta de Plata", "del Valle Sombrío", 
+    "Escama de Dragón"
+};
+
+
+const char* clases[] = {
+    "Guerreros", "Magos", "Arqueros", "Clérigos", "Bárbaros",
+    "Asesinos", "Paladines", "Druidas", "Hechiceros", "Alquimistas"
+};
 void generar_registro_aleatorio(Registro *reg, int id) {
     reg->id = id;
     snprintf(reg->nombre, MAX_NOMBRE, "%s %s",
              nombres[rand() % 6], apellidos[rand() % 6]);
-    snprintf(reg->email, MAX_EMAIL, "%s.%s%s",
-             nombres[rand() % 6], apellidos[rand() % 6], dominios[rand() % 3]);
-    reg->edad = 18 + rand() % 48;
-    reg->salario = 300000 + (rand() % 1700000);
-    snprintf(reg->departamento, MAX_NOMBRE, "%s", departamentos[rand() % 5]);
+    snprintf(reg->clase, MAX_CLASE, "%s",
+             clases[rand() % 10]);
+    reg->nivel = 1 + rand() % 10;
+    reg->oro = 1000 + (rand() % 9000);
 }
 
 void proceso_generador(int generador_id, int shmid, int semid) {
