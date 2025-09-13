@@ -1,144 +1,156 @@
-# Makefile para el Trabajo Práctico de Sistemas Operativos
-# Ejercicio 1: Generador de Datos con Procesos y Memoria Compartida
+# Makefile Principal - Trabajo Práctico de Sistemas Operativos
+# Universidad Nacional de La Matanza - Segundo Cuatrimestre 2025
 
-CC = gcc
-CFLAGS = -Wall -Wextra -std=c99 -D_GNU_SOURCE
-LIBS = 
-TARGET = generador_datos
-OBJS = main.o coordinador.o generador.o semaforos.o
+.PHONY: all clean test demo help ejercicio-1 ejercicio-2
 
-# Regla principal
-all: $(TARGET)
+# Compilar ambos ejercicios
+all:
+	@echo "🎓 TRABAJO PRÁCTICO - SISTEMAS OPERATIVOS"
+	@echo "========================================="
+	@echo ""
+	@echo "📁 Compilando Ejercicio 1..."
+	@cd ejercicio-1 && $(MAKE)
+	@echo ""
+	@echo "📁 Compilando Ejercicio 2..."
+	@cd ejercicio-2 && $(MAKE)
+	@echo ""
+	@echo "✅ Ambos ejercicios compilados exitosamente"
 
-# Compilar el ejecutable principal
-$(TARGET): $(OBJS)
-	@echo "🔧 Enlazando ejecutable $(TARGET)..."
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS) $(LIBS)
-	@echo "✅ Compilación completada: $(TARGET)"
+# Ejercicio 1 individual
+ejercicio-1:
+	@echo "🏗️  Compilando Ejercicio 1..."
+	@cd ejercicio-1 && $(MAKE)
 
-# Compilar archivos objeto
-main.o: main.c shared_memory.h
-	@echo "🔧 Compilando main.c..."
-	$(CC) $(CFLAGS) -c main.c
+# Ejercicio 2 individual
+ejercicio-2:
+	@echo "🏗️  Compilando Ejercicio 2..."
+	@cd ejercicio-2 && $(MAKE)
 
-coordinador.o: coordinador.c shared_memory.h
-	@echo "🔧 Compilando coordinador.c..."
-	$(CC) $(CFLAGS) -c coordinador.c
-
-generador.o: generador.c shared_memory.h
-	@echo "🔧 Compilando generador.c..."
-	$(CC) $(CFLAGS) -c generador.c
-
-semaforos.o: semaforos.c shared_memory.h
-	@echo "🔧 Compilando semaforos.c..."
-	$(CC) $(CFLAGS) -c semaforos.c
-
-# Limpiar archivos compilados
+# Limpiar ambos ejercicios
 clean:
-	@echo "🧹 Limpiando archivos compilados..."
-	rm -f $(OBJS) $(TARGET) datos_generados.csv
+	@echo "🧹 Limpiando ambos ejercicios..."
+	@cd ejercicio-1 && $(MAKE) clean 2>/dev/null || true
+	@cd ejercicio-2 && $(MAKE) clean 2>/dev/null || true
 	@echo "✅ Limpieza completada"
 
-# Limpiar recursos IPC (por si quedaron colgados)
+# Limpiar recursos IPC
 clean-ipc:
 	@echo "🧹 Limpiando recursos IPC..."
-	@ipcs -s | grep $(USER) | awk '{print $$2}' | xargs -r ipcrm -s 2>/dev/null || true
-	@ipcs -m | grep $(USER) | awk '{print $$2}' | xargs -r ipcrm -m 2>/dev/null || true
-	@echo "✅ Recursos IPC limpiados"
+	@cd ejercicio-1 && $(MAKE) clean-ipc 2>/dev/null || true
 
-# Ejecutar pruebas
-test: $(TARGET)
-	@echo "🧪 Ejecutando prueba con 3 generadores y 100 registros..."
-	./$(TARGET) 3 100
+# Prueba completa del sistema
+test: all
+	@echo "🧪 PRUEBA COMPLETA DEL SISTEMA"
+	@echo "=============================="
 	@echo ""
-	@echo "📊 Verificando resultado:"
-	@if [ -f datos_generados.csv ]; then \
-		echo "   • Registros generados: $$(wc -l < datos_generados.csv | tr -d ' ')"; \
-		echo "   • Primeras 5 líneas:"; \
-		head -5 datos_generados.csv; \
-	else \
-		echo "   ❌ No se generó el archivo CSV"; \
-	fi
+	@echo "1️⃣  Probando Ejercicio 1 (Generación de datos)..."
+	@cd ejercicio-1 && $(MAKE) test
+	@echo ""
+	@echo "2️⃣  Verificando datos generados..."
+	@cd ejercicio-1 && $(MAKE) verify
+	@echo ""
+	@echo "3️⃣  Probando Ejercicio 2 (Cliente-Servidor)..."
+	@cd ejercicio-2 && $(MAKE) test
+	@echo ""
+	@echo "✅ Pruebas completadas"
 
-# Verificar IDs con AWK (como pide el ejercicio)
-verify: datos_generados.csv
-	@echo "🔍 Verificando IDs con script AWK..."
-	@awk -F',' ' \
-		NR == 1 { next } \
-		{ \
-			id = $$1; \
-			if (id in ids) { \
-				print "❌ ID duplicado encontrado: " id; \
-				duplicates++; \
-			} else { \
-				ids[id] = 1; \
-			} \
-			if (NR == 2) min_id = max_id = id; \
-			if (id < min_id) min_id = id; \
-			if (id > max_id) max_id = id; \
-		} \
-		END { \
-			total = NR - 1; \
-			expected_total = max_id - min_id + 1; \
-			print "📈 Estadísticas de IDs:"; \
-			print "   • Total registros: " total; \
-			print "   • ID mínimo: " min_id; \
-			print "   • ID máximo: " max_id; \
-			print "   • Rango esperado: " expected_total; \
-			if (duplicates > 0) { \
-				print "   ❌ IDs duplicados: " duplicates; \
-			} else { \
-				print "   ✅ Sin IDs duplicados"; \
-			} \
-			if (total == expected_total) { \
-				print "   ✅ IDs correlativos correctos"; \
-			} else { \
-				print "   ❌ Faltan IDs en la secuencia"; \
-			} \
-		}' datos_generados.csv
+# Demo interactivo completo
+demo: all
+	@echo "🎭 DEMO COMPLETO DEL TRABAJO PRÁCTICO"
+	@echo "====================================="
+	@echo ""
+	@echo "📊 1. Generando datos con múltiples procesos..."
+	@cd ejercicio-1 && ./generador_datos 4 100
+	@echo ""
+	@echo "🔍 2. Verificando integridad de los datos..."
+	@cd ejercicio-1 && $(MAKE) verify
+	@echo ""
+	@echo "🌐 3. Iniciando sistema cliente-servidor..."
+	@cd ejercicio-2 && $(MAKE) demo
+	@echo ""
+	@echo "🎉 Demo completado!"
 
-# Monitoreo del sistema (como pide el ejercicio)
+# Monitoreo completo
 monitor:
-	@echo "🖥️  Monitoreando recursos del sistema..."
+	@echo "🖥️  MONITOREO COMPLETO DEL SISTEMA"
+	@echo "=================================="
 	@echo ""
-	@echo "📊 Memoria compartida (ipcs -m):"
-	@ipcs -m | head -1
-	@ipcs -m | grep $(USER) || echo "   (Sin memoria compartida activa)"
+	@echo "📊 Ejercicio 1 - Procesos y Memoria Compartida:"
+	@cd ejercicio-1 && $(MAKE) monitor 2>/dev/null || echo "   (Ejercicio 1 no compilado)"
 	@echo ""
-	@echo "🔒 Semáforos (ipcs -s):"
-	@ipcs -s | head -1
-	@ipcs -s | grep $(USER) || echo "   (Sin semáforos activos)"
-	@echo ""
-	@echo "⚡ Procesos relacionados (ps):"
-	@ps aux | grep -E "(generador_datos|PID)" | grep -v grep || echo "   (Sin procesos activos)"
+	@echo "🌐 Ejercicio 2 - Cliente-Servidor:"
+	@cd ejercicio-2 && $(MAKE) monitor 2>/dev/null || echo "   (Ejercicio 2 no compilado)"
 
-# Ayuda
+# Matar todos los procesos
+kill-all:
+	@echo "🔪 Terminando todos los procesos del TP..."
+	@pkill generador_datos 2>/dev/null || true
+	@pkill servidor 2>/dev/null || true
+	@pkill cliente 2>/dev/null || true
+	@cd ejercicio-1 && $(MAKE) clean-ipc 2>/dev/null || true
+	@echo "✅ Procesos terminados"
+
+# Ayuda completa
 help:
-	@echo "📋 Comandos disponibles:"
-	@echo "   make          - Compilar el proyecto"
-	@echo "   make clean    - Limpiar archivos compilados"
-	@echo "   make clean-ipc- Limpiar recursos IPC colgados"
-	@echo "   make test     - Ejecutar prueba básica"
-	@echo "   make verify   - Verificar IDs con AWK"
-	@echo "   make monitor  - Mostrar recursos del sistema"
-	@echo "   make help     - Mostrar esta ayuda"
+	@echo "📋 TRABAJO PRÁCTICO - SISTEMAS OPERATIVOS"
+	@echo "========================================="
 	@echo ""
-	@echo "💡 Uso del programa:"
-	@echo "   ./$(TARGET) <num_generadores> <total_registros>"
-monitor:
-	@echo "=== Procesos coordinador/generador ==="
-	@ps -fC coordinador || true
-	@ps -fC generador || true
-	@echo
-	@echo "=== Recursos IPC (memoria y semáforos) ==="
-	@ipcs -m
-	@ipcs -s
-	@echo
-	@echo "=== /dev/shm ==="
-	@ls -lh /dev/shm
-	@echo
-	@echo "=== Estadísticas vmstat (5 seg) ==="
-	@vmstat 1 5
+	@echo "👨‍🎓 Estudiante: [TU NOMBRE]"
+	@echo "🏫 Universidad Nacional de La Matanza"
+	@echo "📅 Segundo Cuatrimestre 2025"
+	@echo ""
+	@echo "🏗️  COMPILACIÓN:"
+	@echo "   make              - Compilar ambos ejercicios"
+	@echo "   make ejercicio-1  - Compilar solo Ejercicio 1"
+	@echo "   make ejercicio-2  - Compilar solo Ejercicio 2"
+	@echo "   make clean        - Limpiar archivos compilados"
+	@echo ""
+	@echo "🧪 PRUEBAS:"
+	@echo "   make test         - Prueba completa del sistema"
+	@echo "   make demo         - Demo interactivo completo"
+	@echo "   make monitor      - Monitorear recursos"
+	@echo "   make kill-all     - Terminar todos los procesos"
+	@echo ""
+	@echo "📁 EJERCICIO 1 (Procesos + Memoria Compartida):"
+	@echo "   cd ejercicio-1"
+	@echo "   ./generador_datos <generadores> <registros>"
+	@echo ""
+	@echo "📁 EJERCICIO 2 (Cliente-Servidor + Transacciones):"
+	@echo "   cd ejercicio-2"
+	@echo "   Terminal 1: make run-server"
+	@echo "   Terminal 2: make run-client"
+	@echo ""
+	@echo "📚 Para ayuda específica:"
+	@echo "   cd ejercicio-1 && make help"
+	@echo "   cd ejercicio-2 && make help"
 
-# Declarar targets que no son archivos
-.PHONY: all clean clean-ipc test verify monitor help
+# Crear estructura de directorios si no existe
+init:
+	@echo "📁 Inicializando estructura del proyecto..."
+	@mkdir -p ejercicio-1 ejercicio-2
+	@echo "✅ Estructura creada"
+
+# Información del proyecto
+info:
+	@echo "📊 INFORMACIÓN DEL PROYECTO"
+	@echo "==========================="
+	@echo ""
+	@echo "📋 Ejercicio 1: Generador de Datos con Procesos"
+	@echo "   • Múltiples procesos generadores"
+	@echo "   • Memoria compartida (SHM)"
+	@echo "   • Sincronización con semáforos"
+	@echo "   • Generación de archivo CSV"
+	@echo ""
+	@echo "📋 Ejercicio 2: Cliente-Servidor con Transacciones"
+	@echo "   • Servidor multi-thread"
+	@echo "   • Sockets TCP/IP"
+	@echo "   • Operaciones CRUD sobre CSV"
+	@echo "   • Sistema de transacciones"
+	@echo ""
+	@echo "🔧 Tecnologías utilizadas:"
+	@echo "   • Lenguaje: C (estándar C99)"
+	@echo "   • IPC: Memoria compartida, semáforos, sockets"
+	@echo "   • Threading: pthreads"
+	@echo "   • Persistencia: Archivos CSV"
+
+.PHONY: init info

@@ -1,0 +1,17 @@
+# Configuración del Servidor CSV Database
+# Líneas que empiecen con # son comentarios
+
+# Dirección IP del servidor (0.0.0.0 = todas las interfaces)
+ip=127.0.0.1
+
+# Puerto de escucha
+puerto=8080
+
+# Máximo número de clientes concurrentes
+max_clientes=5
+
+# Máximo número de clientes en espera
+max_espera=10
+
+# Archivo CSV de la base de datos (ruta relativa desde ejercicio-2)
+csv_file=../ejercicio-1/datos_generados.csv

@@ -18,10 +18,10 @@ const char* clases[] = {
     "Guerreros", "Magos", "Arqueros", "Clérigos", "Bárbaros",
     "Asesinos", "Paladines", "Druidas", "Hechiceros", "Alquimistas"
 };
-void generar_registro_aleatorio(Registro *reg, int id) {
+void generar_registro_aleatorio(RegistroDatos *reg, int id) {
     reg->id = id;
     snprintf(reg->nombre, MAX_NOMBRE, "%s %s",
-             nombres[rand() % 6], apellidos[rand() % 6]);
+             nombres[rand() % 10], apellidos[rand() % 10]);
     snprintf(reg->clase, MAX_CLASE, "%s",
              clases[rand() % 10]);
     reg->nivel = 1 + rand() % 10;
@@ -105,7 +105,7 @@ void proceso_generador(int generador_id, int shmid, int semid) {
         
         // Generar y enviar registro
         if (idx_actual < cantidad_ids) {
-            Registro nuevo_registro;
+            RegistroDatos nuevo_registro;
             generar_registro_aleatorio(&nuevo_registro, ids_asignados[idx_actual]);
             
             sem_wait(semid, SEM_MUTEX);
@@ -118,7 +118,7 @@ void proceso_generador(int generador_id, int shmid, int semid) {
             }
             
             // Enviar registro
-            memcpy(&shm->registro_actual, &nuevo_registro, sizeof(Registro));
+            memcpy(&shm->registro_actual, &nuevo_registro, sizeof(RegistroDatos));
             shm->generador_actual = generador_id;
             shm->estado = ESTADO_NUEVO_REGISTRO;
             

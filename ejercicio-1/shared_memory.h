@@ -24,7 +24,7 @@ typedef struct {
     char clase[MAX_CLASE];
     int nivel;
     float oro;
-} Registro;
+} RegistroDatos;
 
 // Estados para la comunicación
 typedef enum {
@@ -67,7 +67,7 @@ typedef struct {
     RespuestaIDs respuesta;
     
     // Para envío de registros
-    Registro registro_actual;
+    RegistroDatos registro_actual;
     int generador_actual;
     
     // Control de finalización
