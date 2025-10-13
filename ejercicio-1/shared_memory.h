@@ -12,7 +12,7 @@
 #include <time.h>
 #include <wait.h>
 
-#define MAX_RECORD_SIZE 512
+#define MAX_RECORD_SIZE 65536
 #define MAX_NOMBRE 50
 #define MAX_CLASE 50
 #define IDS_POR_LOTE 10

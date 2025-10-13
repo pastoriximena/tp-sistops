@@ -36,7 +36,7 @@ void cleanup_handler(int sig) {
     
     // Limpiar semáforos
     if (semid != -1) {
-        eliminar_semaforos(semid);
+        semctl(semid, 0, IPC_RMID, 0);
     }
     
     printf("✅ Recursos liberados correctamente\n");
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
     int num_gen = atoi(argv[1]);
     int total_registros = atoi(argv[2]);
     
-    if (num_gen <= 0 || num_gen > 10) {
+    if (num_gen <= 0 || num_gen > MAX_GENERADORES) {
         printf("❌ ERROR: Número de generadores debe estar entre 1 y 10\n");
         mostrar_ayuda(argv[0]);
         return 1;
