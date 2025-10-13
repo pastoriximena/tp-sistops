@@ -1,5 +1,7 @@
 #include "protocolo.h"
 #include <termios.h>
+#include <signal.h>
+#include <sys/time.h>
 
 void mostrar_ayuda_cliente() {
     printf("📋 USO: ./cliente [opciones]\n\n");
@@ -66,6 +68,8 @@ int main(int argc, char* argv[]) {
     char servidor_ip[64] = "127.0.0.1";
     int puerto = 8080;
     
+    signal(SIGPIPE, SIG_IGN);  // Ignorar SIGPIPE para evitar terminación abrupta al enviar a socket cerrado
+    
     // Procesar argumentos
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-h") == 0) {
@@ -112,6 +116,13 @@ int main(int argc, char* argv[]) {
         close(socket_fd);
         return 1;
     }
+    
+    // Configurar timeouts para evitar bloqueos indefinidos
+    struct timeval timeout;
+    timeout.tv_sec = 30;  // 30 segundos timeout
+    timeout.tv_usec = 0;
+    setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    setsockopt(socket_fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
     
     printf("✅ Conectado exitosamente!\n\n");
     
@@ -166,9 +177,21 @@ int main(int argc, char* argv[]) {
         }
         
         // Recibir respuesta
-        bytes = recv(socket_fd, respuesta, MAX_RESPONSE_LENGTH - 1, 0);
+        bytes = recv(socket_fd, respuesta, MAX_RESPONSE_LENGTH - 1, MSG_DONTWAIT);
+        if (bytes == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // Timeout - reintenta
+                usleep(100000); // 100ms
+                bytes = recv(socket_fd, respuesta, MAX_RESPONSE_LENGTH - 1, 0);
+            }
+        }
+        
         if (bytes <= 0) {
-            printf("❌ Conexión perdida con el servidor\n");
+            if (bytes == 0) {
+                printf("🔌 Servidor cerró la conexión\n");
+            } else {
+                printf("❌ Error de comunicación con el servidor\n");
+            }
             break;
         }
         

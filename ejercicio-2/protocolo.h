@@ -15,8 +15,8 @@
 #include <time.h>
 #include <fcntl.h>
 
-#define MAX_CLIENTES_CONCURRENTES 10
-#define MAX_CLIENTES_ESPERA 20
+#define MAX_CLIENTES_CONCURRENTES 5
+#define MAX_CLIENTES_ESPERA 10
 #define MAX_COMMAND_LENGTH 1024
 #define MAX_RESPONSE_LENGTH 4096
 #define CSV_FILENAME "../ejercicio-1/datos_generados.csv"
@@ -71,6 +71,13 @@ typedef struct {
     char csv_file[256];
 } ConfigServidor;
 
+// Cola de espera para clientes
+typedef struct {
+    int cliente_fd;
+    struct sockaddr_in direccion;
+    time_t tiempo_llegada;
+} ClienteEnEspera;
+
 // Variables globales del servidor
 extern pthread_mutex_t mutex_db;
 extern pthread_mutex_t mutex_clientes;
@@ -79,6 +86,12 @@ extern int transaccion_activa;
 extern int cliente_con_transaccion;
 extern ClienteInfo clientes_conectados[MAX_CLIENTES_CONCURRENTES];
 extern int num_clientes_activos;
+
+// Variables globales adicionales
+extern ClienteEnEspera cola_espera[MAX_CLIENTES_ESPERA];
+extern int num_clientes_en_espera;
+extern pthread_mutex_t mutex_cola_espera;
+extern pthread_cond_t cond_espacio_disponible;
 
 // Funciones del protocolo
 TipoComando parsear_comando(const char* comando, ComandoParsed* parsed);

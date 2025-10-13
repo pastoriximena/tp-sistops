@@ -10,6 +10,12 @@ ClienteInfo clientes_conectados[MAX_CLIENTES_CONCURRENTES];
 int num_clientes_activos = 0;
 ConfigServidor config_global;
 
+// Agregar las nuevas variables globales:
+ClienteEnEspera cola_espera[MAX_CLIENTES_ESPERA];
+int num_clientes_en_espera = 0;
+pthread_mutex_t mutex_cola_espera = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond_espacio_disponible = PTHREAD_COND_INITIALIZER;
+
 void mostrar_ayuda_servidor() {
     printf("📋 USO: ./servidor [opciones]\n\n");
     printf("OPCIONES:\n");
@@ -226,21 +232,89 @@ void* manejar_cliente(void* arg) {
     
     close(cliente->socket_fd);
     
-    // Remover cliente de la lista
+    // CORRECCIÓN: Remover cliente de la lista
     pthread_mutex_lock(&mutex_clientes);
+    int cliente_encontrado = 0;
     for (int i = 0; i < num_clientes_activos; i++) {
         if (clientes_conectados[i].cliente_id == cliente->cliente_id) {
-            // Mover el último cliente a esta posición
-            if (i < num_clientes_activos - 1) {
-                clientes_conectados[i] = clientes_conectados[num_clientes_activos - 1];
+            for (int j = i; j < num_clientes_activos - 1; j++) {
+                clientes_conectados[j] = clientes_conectados[j + 1];
             }
             num_clientes_activos--;
+            cliente_encontrado = 1;
             break;
         }
     }
     pthread_mutex_unlock(&mutex_clientes);
     
+    if (cliente_encontrado) {
+        printf("👋 Cliente %d desconectado (%d/%d activos restantes)\n",
+               cliente->cliente_id, num_clientes_activos, config_global.max_clientes);
+        
+        // Notificar al procesador de cola que hay espacio disponible
+        pthread_cond_signal(&cond_espacio_disponible);
+    }
+    
     log_cliente(cliente->cliente_id, "Thread de cliente terminado");
+    return NULL;
+}
+
+// Función para procesar cola de espera
+void* procesador_cola_espera(void* arg) {
+    while (servidor_corriendo) {
+        pthread_mutex_lock(&mutex_cola_espera);
+        
+        // Esperar hasta que haya clientes en cola y espacio disponible
+        while ((num_clientes_en_espera == 0 || num_clientes_activos >= config_global.max_clientes) && servidor_corriendo) {
+            pthread_cond_wait(&cond_espacio_disponible, &mutex_cola_espera);
+        }
+        
+        if (!servidor_corriendo) {
+            pthread_mutex_unlock(&mutex_cola_espera);
+            break;
+        }
+        
+        // Procesar el primer cliente de la cola
+        if (num_clientes_en_espera > 0 && num_clientes_activos < config_global.max_clientes) {
+            ClienteEnEspera cliente_espera = cola_espera[0];
+            
+            // Remover de la cola (mover todos hacia adelante)
+            for (int i = 0; i < num_clientes_en_espera - 1; i++) {
+                cola_espera[i] = cola_espera[i + 1];
+            }
+            num_clientes_en_espera--;
+            
+            pthread_mutex_unlock(&mutex_cola_espera);
+            
+            // Crear el cliente activo
+            pthread_mutex_lock(&mutex_clientes);
+            if (num_clientes_activos < config_global.max_clientes) {
+                int cliente_id = (time(NULL) + rand()) % 100000;
+                
+                clientes_conectados[num_clientes_activos].socket_fd = cliente_espera.cliente_fd;
+                clientes_conectados[num_clientes_activos].cliente_id = cliente_id;
+                clientes_conectados[num_clientes_activos].direccion = cliente_espera.direccion;
+                clientes_conectados[num_clientes_activos].estado_trans = TRANS_NONE;
+                clientes_conectados[num_clientes_activos].tiempo_conexion = time(NULL);
+                
+                if (pthread_create(&clientes_conectados[num_clientes_activos].thread, NULL, 
+                                  manejar_cliente, &clientes_conectados[num_clientes_activos]) == 0) {
+                    pthread_detach(clientes_conectados[num_clientes_activos].thread);
+                    num_clientes_activos++;
+                    
+                    printf("🎉 Cliente de la cola promovido (ID: %d) - %d/%d activos\n",
+                           cliente_id, num_clientes_activos, config_global.max_clientes);
+                } else {
+                    close(cliente_espera.cliente_fd);
+                }
+            } else {
+                close(cliente_espera.cliente_fd);
+            }
+            pthread_mutex_unlock(&mutex_clientes);
+        } else {
+            pthread_mutex_unlock(&mutex_cola_espera);
+        }
+    }
     return NULL;
 }
 
@@ -314,13 +388,16 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
+    // Crear thread para procesar cola de espera
+    pthread_t thread_cola;
+    pthread_create(&thread_cola, NULL, procesador_cola_espera, NULL);
+    
     printf("🚀 Servidor iniciado exitosamente\n");
     printf("🌐 Escuchando en %s:%d\n", 
-           (strlen(config_global.ip) > 0) ? config_global.ip : "0.0.0.0", 
-           config_global.puerto);
+           (strlen(config_global.ip) > 0 && strcmp(config_global.ip, "0.0.0.0") != 0) ? 
+           config_global.ip : "todas las interfaces", config_global.puerto);
     printf("👥 Clientes concurrentes: %d, En espera: %d\n", 
            config_global.max_clientes, config_global.max_espera);
-    printf("📊 Base de datos: %s\n\n", config_global.csv_file);
     
     // Loop principal del servidor
     while (servidor_corriendo) {
@@ -335,46 +412,90 @@ int main(int argc, char* argv[]) {
             continue;
         }
         
-        // Verificar límite de clientes
         pthread_mutex_lock(&mutex_clientes);
-        if (num_clientes_activos >= config_global.max_clientes) {
-            pthread_mutex_unlock(&mutex_clientes);
-            
-            enviar_respuesta(cliente_fd, 
-                "🚫 Servidor lleno. Intenta más tarde");
-            close(cliente_fd);
-            printf("🚫 Cliente rechazado: servidor lleno\n");
-            continue;
-        }
-        
-        // Agregar cliente a la lista
-        int cliente_id = time(NULL) % 10000; // ID único simple
-        clientes_conectados[num_clientes_activos].socket_fd = cliente_fd;
-        clientes_conectados[num_clientes_activos].cliente_id = cliente_id;
-        clientes_conectados[num_clientes_activos].direccion = cliente_addr;
-        clientes_conectados[num_clientes_activos].estado_trans = TRANS_NONE;
-        clientes_conectados[num_clientes_activos].tiempo_conexion = time(NULL);
-        
-        // Crear thread para el cliente
-        if (pthread_create(&clientes_conectados[num_clientes_activos].thread, NULL, 
-                          manejar_cliente, &clientes_conectados[num_clientes_activos]) != 0) {
-            perror("Error creando thread para cliente");
-            close(cliente_fd);
-            pthread_mutex_unlock(&mutex_clientes);
-            continue;
-        }
-        
-        pthread_detach(clientes_conectados[num_clientes_activos].thread);
-        num_clientes_activos++;
-        
+        int clientes_activos_actual = num_clientes_activos;
         pthread_mutex_unlock(&mutex_clientes);
         
-        printf("✅ Cliente %d conectado desde %s:%d (%d/%d activos)\n",
-               cliente_id, inet_ntoa(cliente_addr.sin_addr), 
-               ntohs(cliente_addr.sin_port),
-               num_clientes_activos, config_global.max_clientes);
+        if (clientes_activos_actual >= config_global.max_clientes) {
+            // Verificar si hay espacio en la cola de espera
+            pthread_mutex_lock(&mutex_cola_espera);
+            if (num_clientes_en_espera >= config_global.max_espera) {
+                pthread_mutex_unlock(&mutex_cola_espera);
+                
+                // Cola de espera también llena
+                char mensaje_rechazo[512];
+                snprintf(mensaje_rechazo, sizeof(mensaje_rechazo), 
+                    "❌ Servidor completamente lleno\n"
+                    "👥 Clientes activos: %d/%d\n"
+                    "⏳ Cola de espera: %d/%d\n"
+                    "🔄 Intenta más tarde\n", 
+                    clientes_activos_actual, config_global.max_clientes,
+                    num_clientes_en_espera, config_global.max_espera);
+                
+                send(cliente_fd, mensaje_rechazo, strlen(mensaje_rechazo), 0);
+                usleep(500000);
+                close(cliente_fd);
+                
+                printf("🚫 Cliente rechazado: servidor y cola llenos (%s:%d)\n", 
+                       inet_ntoa(cliente_addr.sin_addr), ntohs(cliente_addr.sin_port));
+                continue;
+            }
+            
+            // Agregar a cola de espera
+            cola_espera[num_clientes_en_espera].cliente_fd = cliente_fd;
+            cola_espera[num_clientes_en_espera].direccion = cliente_addr;
+            cola_espera[num_clientes_en_espera].tiempo_llegada = time(NULL);
+            num_clientes_en_espera++;
+            
+            pthread_mutex_unlock(&mutex_cola_espera);
+            
+            // Enviar mensaje de espera
+            char mensaje_espera[512];
+            snprintf(mensaje_espera, sizeof(mensaje_espera), 
+                "⏳ En cola de espera (posición %d/%d)\n"
+                "👥 Clientes activos: %d/%d\n"
+                "💡 Mantén la conexión abierta, serás atendido cuando se libere un espacio\n"
+                "🔄 Conectando automáticamente...\n", 
+                num_clientes_en_espera, config_global.max_espera,
+                clientes_activos_actual, config_global.max_clientes);
+            
+            send(cliente_fd, mensaje_espera, strlen(mensaje_espera), 0);
+            
+            printf("⏳ Cliente en cola de espera (posición %d) desde %s:%d\n",
+                   num_clientes_en_espera, inet_ntoa(cliente_addr.sin_addr), ntohs(cliente_addr.sin_port));
+            
+        } else {
+            // Hay espacio, conectar inmediatamente
+            pthread_mutex_lock(&mutex_clientes);
+            int cliente_id = (time(NULL) + rand()) % 100000;
+            
+            clientes_conectados[num_clientes_activos].socket_fd = cliente_fd;
+            clientes_conectados[num_clientes_activos].cliente_id = cliente_id;
+            clientes_conectados[num_clientes_activos].direccion = cliente_addr;
+            clientes_conectados[num_clientes_activos].estado_trans = TRANS_NONE;
+            clientes_conectados[num_clientes_activos].tiempo_conexion = time(NULL);
+            
+            if (pthread_create(&clientes_conectados[num_clientes_activos].thread, NULL, 
+                              manejar_cliente, &clientes_conectados[num_clientes_activos]) != 0) {
+                perror("Error creando thread para cliente");
+                close(cliente_fd);
+                pthread_mutex_unlock(&mutex_clientes);
+                continue;
+            }
+            
+            pthread_detach(clientes_conectados[num_clientes_activos].thread);
+            num_clientes_activos++;
+            pthread_mutex_unlock(&mutex_clientes);
+            
+            printf("✅ Cliente %d conectado directamente desde %s:%d (%d/%d espacios ocupados)\n",
+                   cliente_id, inet_ntoa(cliente_addr.sin_addr), ntohs(cliente_addr.sin_port),
+                   num_clientes_activos, config_global.max_clientes);
+        }
     }
     
+    // Limpiar al final
+    pthread_cond_broadcast(&cond_espacio_disponible);
+    pthread_join(thread_cola, NULL);
     close(servidor_fd);
     return 0;
 }
