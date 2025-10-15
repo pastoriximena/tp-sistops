@@ -16,6 +16,53 @@ int num_clientes_en_espera = 0;
 pthread_mutex_t mutex_cola_espera = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond_espacio_disponible = PTHREAD_COND_INITIALIZER;
 
+// Hilo para clientes en cola de espera: solo responde con mensaje de espera
+void* manejar_cliente_espera(void* arg) {
+    ClienteEnEspera* cliente = (ClienteEnEspera*)arg;
+    char buffer[128];
+    int fd = cliente->cliente_fd;
+    while (servidor_corriendo) {
+        int bytes = recv(fd, buffer, sizeof(buffer)-1, MSG_DONTWAIT);
+        if (bytes > 0) {
+            char mensaje[256];
+            pthread_mutex_lock(&mutex_cola_espera);
+            int posicion = 1;
+            for (int i = 0; i < num_clientes_en_espera; i++) {
+                if (cola_espera[i].cliente_fd == fd) {
+                    posicion = i+1;
+                    break;
+                }
+            }
+            pthread_mutex_unlock(&mutex_cola_espera);
+            snprintf(mensaje, sizeof(mensaje),
+                "⏳ Tienes que entrar en el servidor, estás en cola de espera (posición %d/%d)\n",
+                posicion, MAX_CLIENTES_ESPERA);
+            send(fd, mensaje, strlen(mensaje), 0);
+        } else if (bytes == 0) {
+            // Cliente cerró conexión
+            eliminar_de_cola_espera(fd);
+            close(fd);
+            break;
+        }
+        usleep(200000); // Evita busy loop
+    }
+    return NULL;
+}
+
+void eliminar_de_cola_espera(int cliente_fd) {
+    pthread_mutex_lock(&mutex_cola_espera);
+    for (int i = 0; i < num_clientes_en_espera; i++) {
+        if (cola_espera[i].cliente_fd == cliente_fd) {
+            for (int j = i; j < num_clientes_en_espera - 1; j++) {
+                cola_espera[j] = cola_espera[j + 1];
+            }
+            num_clientes_en_espera--;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&mutex_cola_espera);
+}
+
 void mostrar_ayuda_servidor() {
     printf("📋 USO: ./servidor [opciones]\n\n");
     printf("OPCIONES:\n");
@@ -277,6 +324,15 @@ void* procesador_cola_espera(void* arg) {
         // Procesar el primer cliente de la cola
         if (num_clientes_en_espera > 0 && num_clientes_activos < config_global.max_clientes) {
             ClienteEnEspera cliente_espera = cola_espera[0];
+
+            char test_buf;
+            int res = recv(cliente_espera.cliente_fd, &test_buf, 1, MSG_PEEK | MSG_DONTWAIT);
+            if (res == 0 || (res == -1 && errno != EAGAIN && errno != EWOULDBLOCK)) {
+                close(cliente_espera.cliente_fd);
+                eliminar_de_cola_espera(cliente_espera.cliente_fd);
+                pthread_mutex_unlock(&mutex_cola_espera);
+                continue;
+            }
             
             // Remover de la cola (mover todos hacia adelante)
             for (int i = 0; i < num_clientes_en_espera - 1; i++) {
@@ -446,6 +502,11 @@ int main(int argc, char* argv[]) {
             cola_espera[num_clientes_en_espera].direccion = cliente_addr;
             cola_espera[num_clientes_en_espera].tiempo_llegada = time(NULL);
             num_clientes_en_espera++;
+
+                pthread_t thread_espera;
+                ClienteEnEspera* cliente_espera_ptr = &cola_espera[num_clientes_en_espera-1];
+                pthread_create(&thread_espera, NULL, manejar_cliente_espera, cliente_espera_ptr);
+                pthread_detach(thread_espera);
             
             pthread_mutex_unlock(&mutex_cola_espera);
             
